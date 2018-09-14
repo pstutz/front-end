@@ -16,9 +16,8 @@
 package org.opencypher.v9_0.parser
 
 import org.opencypher.v9_0.ast.{AstConstructionTestSupport, Clause}
-import org.opencypher.v9_0.expressions.{Property, PropertyKeyName, RelationshipChain, SignedDecimalIntegerLiteral}
-import org.opencypher.v9_0.util.DummyPosition
-import org.opencypher.v9_0.util.symbols.{CTAny, CTMap}
+import org.opencypher.v9_0.expressions.{Property, RelationshipChain, SignedDecimalIntegerLiteral}
+import org.opencypher.v9_0.util.symbols.AnyType
 import org.opencypher.v9_0.{ast, expressions => exp}
 import org.parboiled.scala._
 
@@ -26,9 +25,9 @@ import scala.language.implicitConversions
 
 class MultipleGraphClausesParsingTest
   extends ParserAstTest[ast.Clause]
-  with Query
-  with Expressions
-  with AstConstructionTestSupport {
+    with Query
+    with Expressions
+    with AstConstructionTestSupport {
 
   implicit val parser: Rule1[Clause] = Clause
 
@@ -36,7 +35,7 @@ class MultipleGraphClausesParsingTest
   val fooDiffGraph = ast.CatalogName(List("foo", "diff"))
 
   test("CONSTRUCT CREATE ()") {
-    val patternParts = List(exp.EveryPath(exp.NodePattern(None,List(),None)(pos)))
+    val patternParts = List(exp.EveryPath(exp.NodePattern(None, List(), None)(pos)))
     yields(ast.ConstructGraph(news = List(ast.CreateInConstruct(exp.Pattern(patternParts)(pos))(pos))))
   }
 
@@ -84,7 +83,7 @@ class MultipleGraphClausesParsingTest
     val newClause: ast.CreateInConstruct = ast.CreateInConstruct(pattern)(pos)
 
     val set = ast.SetClause(List(ast.SetPropertyItem(
-      Property(exp.Variable("a")(pos),exp.PropertyKeyName("prop")(pos))(pos),SignedDecimalIntegerLiteral("1")(pos)
+      Property(exp.Variable("a")(pos), exp.PropertyKeyName("prop")(pos))(pos), SignedDecimalIntegerLiteral("1")(pos)
     )(pos)))(pos)
 
     yields(ast.ConstructGraph(
@@ -98,7 +97,7 @@ class MultipleGraphClausesParsingTest
     val newClause: ast.CreateInConstruct = ast.CreateInConstruct(pattern)(pos)
 
     val set1 = ast.SetClause(List(ast.SetPropertyItem(
-      Property(exp.Variable("a")(pos),exp.PropertyKeyName("prop")(pos))(pos),SignedDecimalIntegerLiteral("1")(pos)
+      Property(exp.Variable("a")(pos), exp.PropertyKeyName("prop")(pos))(pos), SignedDecimalIntegerLiteral("1")(pos)
     )(pos)))(pos)
     val set2 = ast.SetClause(List(ast.SetLabelItem(
       exp.Variable("a")(pos), Seq(exp.LabelName("Foo")(pos))
@@ -220,6 +219,15 @@ class MultipleGraphClausesParsingTest
     yields(ast.ViewInvocation(fooBarGraph, Seq(ast.ViewInvocation(ast.CatalogName("baz"), Seq(ast.GraphLookup(ast.CatalogName("grok"))(pos)))(pos))))
   }
 
+  test("FROM GRAPH foo.bar(baz(grok, 12, $g2))") {
+    yields(
+      ast.ViewInvocation(ast.CatalogName("foo", "bar"),
+        List(
+          ast.ViewInvocation(ast.CatalogName("baz"),
+            List(ast.GraphLookup(ast.CatalogName("grok"))(pos), SignedDecimalIntegerLiteral("12")(pos), ast.GraphByParameter(exp.Parameter("g2", AnyType.instance)(pos))(pos)))(pos)))
+    )
+  }
+
   test("FROM GRAPH foo. bar   (baz  (grok   )  )") {
     yields(ast.ViewInvocation(fooBarGraph, Seq(ast.ViewInvocation(ast.CatalogName("baz"), Seq(ast.GraphLookup(ast.CatalogName("grok"))(pos)))(pos))))
   }
@@ -240,43 +248,43 @@ class MultipleGraphClausesParsingTest
     yields(ast.GraphLookup(ast.CatalogName(List("graph"))))
   }
 
-  test("FROM GRAPH `foo.bar.baz.baz`"){
+  test("FROM GRAPH `foo.bar.baz.baz`") {
     yields(ast.GraphLookup(ast.CatalogName(List("foo.bar.baz.baz"))))
   }
 
-  test("FROM graph1"){
+  test("FROM graph1") {
     yields(ast.GraphLookup(ast.CatalogName(List("graph1"))))
   }
 
-  test("FROM `foo.bar.baz.baz`"){
+  test("FROM `foo.bar.baz.baz`") {
     yields(ast.GraphLookup(ast.CatalogName(List("foo.bar.baz.baz"))))
   }
 
-  test("FROM GRAPH `foo.bar`.baz"){
+  test("FROM GRAPH `foo.bar`.baz") {
     yields(ast.GraphLookup(ast.CatalogName(List("foo.bar", "baz"))))
   }
 
-  test("FROM GRAPH foo.`bar.baz`"){
+  test("FROM GRAPH foo.`bar.baz`") {
     yields(ast.GraphLookup(ast.CatalogName(List("foo", "bar.baz"))))
   }
 
-  test("FROM GRAPH `foo.bar`.`baz.baz`"){
+  test("FROM GRAPH `foo.bar`.`baz.baz`") {
     yields(ast.GraphLookup(ast.CatalogName(List("foo.bar", "baz.baz"))))
   }
 
-  test("CONSTRUCT ON `foo.bar.baz.baz`"){
+  test("CONSTRUCT ON `foo.bar.baz.baz`") {
     yields(ast.ConstructGraph(List.empty, List.empty, List(ast.CatalogName(List("foo.bar.baz.baz")))))
   }
 
-  test("CONSTRUCT ON `foo.bar`.baz"){
+  test("CONSTRUCT ON `foo.bar`.baz") {
     yields(ast.ConstructGraph(List.empty, List.empty, List(ast.CatalogName(List("foo.bar", "baz")))))
   }
 
-  test("CONSTRUCT ON foo.`bar.baz`"){
+  test("CONSTRUCT ON foo.`bar.baz`") {
     yields(ast.ConstructGraph(List.empty, List.empty, List(ast.CatalogName(List("foo", "bar.baz")))))
   }
 
-  test("CONSTRUCT ON `foo.bar`.`baz.baz`"){
+  test("CONSTRUCT ON `foo.bar`.`baz.baz`") {
     yields(ast.ConstructGraph(List.empty, List.empty, List(ast.CatalogName(List("foo.bar", "baz.baz")))))
   }
 

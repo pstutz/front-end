@@ -60,7 +60,9 @@ object Expression {
     }
 }
 
-abstract class Expression extends ASTNode {
+trait ViewParameter
+
+abstract class Expression extends ASTNode with ViewParameter {
 
   self =>
 

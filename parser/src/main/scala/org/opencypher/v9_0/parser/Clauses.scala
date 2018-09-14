@@ -18,7 +18,7 @@ package org.opencypher.v9_0.parser
 import org.opencypher.v9_0
 import org.opencypher.v9_0.ast
 import org.opencypher.v9_0.ast._
-import org.opencypher.v9_0.expressions.{Pattern => ASTPattern}
+import org.opencypher.v9_0.expressions.{ViewParameter, Pattern => ASTPattern}
 import org.parboiled.scala._
 
 trait Clauses extends Parser
@@ -39,21 +39,28 @@ trait Clauses extends Parser
       (ast.LoadCSV(_, _, _, _))
   }
 
-  def FromGraph: Rule1[ast.FromGraph]= rule("FROM GRAPH") {
-    group(keyword("FROM") ~~ optional(keyword("GRAPH"))) ~~ (GraphOrView | GraphByParameter)
+  def FromGraph: Rule1[ast.FromGraph] = rule("FROM GRAPH") {
+    group(keyword("FROM") ~~ optional(keyword("GRAPH"))) ~~ GraphReference
   }
 
-  def GraphOrView: Rule1[ast.FromGraph] = rule("parameterised or direct graph reference") {
-    ViewInvocation ~~>> (ast.ViewInvocation(_, _)) |
-      CatalogName ~~>> (ast.GraphLookup(_))
+  def ViewInvocation: Rule1[ViewInvocation] = rule("a view invocation") {
+    CatalogName ~~ "(" ~~ zeroOrMore(ViewParameter, separator = CommaSep) ~~ ")" ~~>> (ast.ViewInvocation(_, _))
   }
 
-  def GraphByParameter = rule("graph by parameter for view definitions") {
+  def GraphByParameter: Rule1[ast.GraphByParameter] = rule("a graph passed in as a parameter") {
     Parameter ~~>> (ast.GraphByParameter(_))
   }
 
-  def ViewInvocation = rule("parameterised FROM GRAPH") {
-    CatalogName ~~ "(" ~~ zeroOrMore(GraphOrView, separator = CommaSep) ~~ ")"
+  def GraphLookup: Rule1[ast.GraphLookup] = rule {
+    CatalogName ~~>> (ast.GraphLookup(_))
+  }
+
+  def GraphReference: Rule1[ast.FromGraph] = rule("a reference to a graph") {
+    ViewInvocation | GraphLookup | GraphByParameter
+  }
+
+  def ViewParameter: Rule1[ViewParameter] = rule("a parameter for a view invocation") {
+    GraphReference | Expression
   }
 
   def ConstructGraph: Rule1[ast.ConstructGraph] = rule("CONSTRUCT") {
@@ -85,9 +92,9 @@ trait Clauses extends Parser
 
   def Match: Rule1[ast.Match] = rule("MATCH") {
     group((
-      keyword("OPTIONAL MATCH") ~ push(true)
-        | keyword("MATCH") ~ push(false)
-      ) ~~ Pattern ~~ zeroOrMore(Hint, separator = WS) ~~ optional(Where)) ~~>> (ast.Match(_, _, _, _))
+          keyword("OPTIONAL MATCH") ~ push(true)
+            | keyword("MATCH") ~ push(false)
+          ) ~~ Pattern ~~ zeroOrMore(Hint, separator = WS) ~~ optional(Where)) ~~>> (ast.Match(_, _, _, _))
   }
 
   def Merge: Rule1[ast.Merge] = rule("MERGE") {

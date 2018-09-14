@@ -56,6 +56,16 @@ class MultipleGraphClauseSemanticCheckingTest
 
       result.errors shouldBe empty
     }
+
+    parsing(
+      """FROM GRAPH foo.bar(myView('string-literal'), 9)
+        |MATCH (a:A)
+        |CONSTRUCT
+        |  CREATE (a)-[:T]->(:B)
+        |RETURN GRAPH""".stripMargin) shouldVerify { result => SemanticCheckResult
+
+      result.errors shouldBe empty
+    }
   }
 
   test("should allow parameterised from in normal query") {

@@ -37,11 +37,11 @@ sealed trait UpdateClause extends Clause with SemanticAnalysisTooling {
 }
 
 case class LoadCSV(
-                    withHeaders: Boolean,
-                    urlString: Expression,
-                    variable: Variable,
-                    fieldTerminator: Option[StringLiteral]
-                  )(val position: InputPosition) extends Clause with SemanticAnalysisTooling {
+  withHeaders: Boolean,
+  urlString: Expression,
+  variable: Variable,
+  fieldTerminator: Option[StringLiteral]
+)(val position: InputPosition) extends Clause with SemanticAnalysisTooling {
   override def name: String = "LOAD CSV"
 
   override def semanticCheck: SemanticCheck =
@@ -74,34 +74,18 @@ sealed trait MultipleGraphClause extends Clause with SemanticAnalysisTooling {
     requireMultigraphSupport(s"The `$name` clause", position)
 }
 
-trait FromGraph extends MultipleGraphClause {
+trait FromGraph extends MultipleGraphClause with ViewParameter {
 
   override def name = "FROM GRAPH"
 
 }
 
-final case class GraphByParameter(parameter: Parameter)(val position: InputPosition) extends FromGraph {
+final case class GraphByParameter(parameter: Parameter)(val position: InputPosition) extends FromGraph
 
-  override def semanticCheck: SemanticCheck =
-    super.semanticCheck chain
-      SemanticState.recordCurrentScope(this)
+final case class GraphLookup(graphName: CatalogName)(val position: InputPosition) extends FromGraph
 
-}
-
-final case class GraphLookup(graphName: CatalogName)(val position: InputPosition) extends FromGraph {
-
-  override def semanticCheck: SemanticCheck =
-    super.semanticCheck chain SemanticState.recordCurrentScope(this)
-}
-
-final case class ViewInvocation(graphName: CatalogName, params: Seq[FromGraph])
-  (val position: InputPosition) extends FromGraph {
-
-  override def semanticCheck: SemanticCheck =
-    super.semanticCheck chain
-      params.semanticCheck chain
-      SemanticState.recordCurrentScope(this)
-}
+final case class ViewInvocation(graphName: CatalogName, params: Seq[ViewParameter])
+  (val position: InputPosition) extends FromGraph with ViewParameter
 
 final case class Clone(items: List[ReturnItem])
   (val position: InputPosition) extends MultipleGraphClause with SemanticAnalysisTooling {
@@ -327,11 +311,11 @@ case class Start(items: Seq[StartItem], where: Option[Where])(val position: Inpu
 }
 
 case class Match(
-                  optional: Boolean,
-                  pattern: Pattern,
-                  hints: Seq[UsingHint],
-                  where: Option[Where]
-                )(val position: InputPosition) extends Clause with SemanticAnalysisTooling {
+  optional: Boolean,
+  pattern: Pattern,
+  hints: Seq[UsingHint],
+  where: Option[Where]
+)(val position: InputPosition) extends Clause with SemanticAnalysisTooling {
   override def name = "MATCH"
 
   override def semanticCheck: SemanticCheck =
@@ -529,10 +513,10 @@ case class Remove(items: Seq[RemoveItem])(val position: InputPosition) extends U
 }
 
 case class Foreach(
-                    variable: Variable,
-                    expression: Expression,
-                    updates: Seq[Clause]
-                  )(val position: InputPosition) extends UpdateClause {
+  variable: Variable,
+  expression: Expression,
+  updates: Seq[Clause]
+)(val position: InputPosition) extends UpdateClause {
   override def name = "FOREACH"
 
   override def semanticCheck: SemanticCheck =
@@ -546,9 +530,9 @@ case class Foreach(
 }
 
 case class Unwind(
-                   expression: Expression,
-                   variable: Variable
-                 )(val position: InputPosition) extends Clause with SemanticAnalysisTooling {
+  expression: Expression,
+  variable: Variable
+)(val position: InputPosition) extends Clause with SemanticAnalysisTooling {
   override def name = "UNWIND"
 
   override def semanticCheck: SemanticCheck =
@@ -567,13 +551,14 @@ abstract class CallClause extends Clause {
   def containsNoUpdates: Boolean
 }
 
-case class UnresolvedCall(procedureNamespace: Namespace,
-                          procedureName: ProcedureName,
-                          // None: No arguments given
-                          declaredArguments: Option[Seq[Expression]] = None,
-                          // None: No results declared  (i.e. no "YIELD" part)
-                          declaredResult: Option[ProcedureResult] = None
-                         )(val position: InputPosition) extends CallClause {
+case class UnresolvedCall(
+  procedureNamespace: Namespace,
+  procedureName: ProcedureName,
+  // None: No arguments given
+  declaredArguments: Option[Seq[Expression]] = None,
+  // None: No results declared  (i.e. no "YIELD" part)
+  declaredResult: Option[ProcedureResult] = None
+)(val position: InputPosition) extends CallClause {
 
   override def returnColumns: List[String] =
     declaredResult.map(_.items.map(_.variable.name).toList).getOrElse(List.empty)
@@ -633,15 +618,17 @@ sealed trait ProjectionClause extends HorizonClause {
 
   def isReturn: Boolean = false
 
-  def copyProjection(distinct: Boolean = this.distinct,
-           returnItems: ReturnItemsDef = this.returnItems,
-           orderBy: Option[OrderBy] = this.orderBy,
-           skip: Option[Skip] = this.skip,
-           limit: Option[Limit] = this.limit,
-           where: Option[Where] = this.where): ProjectionClause = {
+  def copyProjection(
+    distinct: Boolean = this.distinct,
+    returnItems: ReturnItemsDef = this.returnItems,
+    orderBy: Option[OrderBy] = this.orderBy,
+    skip: Option[Skip] = this.skip,
+    limit: Option[Limit] = this.limit,
+    where: Option[Where] = this.where
+  ): ProjectionClause = {
     this match {
-      case w:With => w.copy(distinct, returnItems, orderBy, skip, limit, where)(this.position)
-      case r:Return => r.copy(distinct, returnItems, orderBy, skip, limit, r.excludedNames)(this.position)
+      case w: With => w.copy(distinct, returnItems, orderBy, skip, limit, where)(this.position)
+      case r: Return => r.copy(distinct, returnItems, orderBy, skip, limit, r.excludedNames)(this.position)
     }
   }
 
@@ -683,7 +670,7 @@ sealed trait ProjectionClause extends HorizonClause {
       // The fixedOrderByResult has the correct scope.
       // We keep errors from both results.
       fixedOrderByResult.copy(state = fixedOrderByResult.state.copy(typeTable = orderByAndWhereResult.state.typeTable),
-                              errors = fixedOrderByResult.errors ++ orderByAndWhereErrors)
+        errors = fixedOrderByResult.errors ++ orderByAndWhereErrors)
     }
     declareAllTheThings
   }
@@ -729,12 +716,14 @@ object With {
     With(distinct = false, returnItems, None, None, None, None)(pos)
 }
 
-case class With(distinct: Boolean,
-                returnItems: ReturnItemsDef,
-                orderBy: Option[OrderBy],
-                skip: Option[Skip],
-                limit: Option[Limit],
-                where: Option[Where])(val position: InputPosition) extends ProjectionClause {
+case class With(
+  distinct: Boolean,
+  returnItems: ReturnItemsDef,
+  orderBy: Option[OrderBy],
+  skip: Option[Skip],
+  limit: Option[Limit],
+  where: Option[Where]
+)(val position: InputPosition) extends ProjectionClause {
 
   override def name = "WITH"
 
@@ -756,12 +745,14 @@ object Return {
     Return(distinct = false, returnItems, None, None, None)(pos)
 }
 
-case class Return(distinct: Boolean,
-                  returnItems: ReturnItemsDef,
-                  orderBy: Option[OrderBy],
-                  skip: Option[Skip],
-                  limit: Option[Limit],
-                  excludedNames: Set[String] = Set.empty)(val position: InputPosition) extends ProjectionClause {
+case class Return(
+  distinct: Boolean,
+  returnItems: ReturnItemsDef,
+  orderBy: Option[OrderBy],
+  skip: Option[Skip],
+  limit: Option[Limit],
+  excludedNames: Set[String] = Set.empty
+)(val position: InputPosition) extends ProjectionClause {
 
   override def name = "RETURN"
 
